@@ -2,28 +2,88 @@ name: Auto Tag and Release
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [ "main",
+                "dev" ]
     types: [closed]
 
 jobs:
   release:
+    # This guard ensures the workflow only runs if the PR was merged, not just closed
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # This tells the automatic token: "You are allowed to push tags and releases."
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for --generate-notes to see previous history
+
+      - name: Build Dummy Artifact
+        run: |
+          echo "Build Version: v1.0.${{ github.event.number }}" > version.txt
+          echo "Release Date: $(date)" >> version.txt
+          zip release-assets.zip version.txt
+          echo "Artifact created: release-assets.zip"
 
       - name: Create Release and Tag
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.event.number }}
-          name: Release v1.0.${{ github.event.number }}
-          body: |
-            Automated Release for PR #${{ github.event.number }}
-            Merged by: ${{ github.actor }}
-          draft: false
-          prerelease: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create the release using GitHub CLI
+          # --generate-notes: Automatically populates the changelog with commit titles
+          # --notes: Appends your custom text ABOVE the generated notes
+          gh release create v1.0.${{ github.event.number }} \
+            release-assets.zip \
+            --target main \
+            --title "Release v1.0.${{ github.event.number }}" \
+            --generate-notes \
+            --notes "### PR Summary
+            **Merged by:** @${{ github.actor }}
+            **PR Number:** #${{ github.event.number }}
+            
+            **Description:**
+            ${{ github.event.pull_request.body }}
+            
+            ---
+            "
+
+
+# name: Auto Tag and Release
+
+# on:
+#   pull_request:    # define trigger event on pull request
+#     branches: ["main",
+#                "dev"] # define branches on which trigger event will be triggered
+#     types: [closed] # define types of pull request events
+#                     # "closed" means when pull request is closed
+#                     # "merged" means when pull request is merged
+#                     # "opened" means when pull request is opened
+#                     # "reopened" means when pull request is reopened
+#                     # "synchronize" means when pull request is synchronized
+#                     # for reference https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request
+
+# jobs:
+#   release:
+#     if: github.event.pull_request.merged == true # define condition for which job will be triggered
+#     runs-on: ubuntu-latest # define runner on which job will be triggered
+#     permissions:
+#       contents: write # define permissions for which job will be triggered
+    
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v6 # define action for which job will be triggered
+
+#       - name: Create Release and Tag
+#         uses: softprops/action-gh-release@v2
+#         with:
+#           tag_name: v1.0.${{ github.event.number }}
+#           name: Release v1.0.${{ github.event.number }}
+#           body: |
+#             Automated Release for PR #${{ github.event.number }}
+#             Merged by: ${{ github.actor }}
+#             Description: ${{ github.event.pull_request.body }}
+            
+#           draft: false
+#           prerelease: false
