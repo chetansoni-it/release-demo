@@ -1,7 +1,7 @@
 name: Auto Tag and Release
 
 on:
-  pull_request:
+  pull_request:   # Ref https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request
     branches: [ "main",
                 "dev" ]
     types: [closed]
